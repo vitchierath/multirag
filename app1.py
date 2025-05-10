@@ -11,7 +11,7 @@ import os
 # Initialize components
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 llm = ChatOpenAI(
-    api_key=os.getenv("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"), #Add your OPENAPI KEY
+    api_key=os.getenv("OPENAPI_KEY"), #Add your OPENAPI KEY
     base_url="https://openrouter.ai/api/v1",
     model="mistralai/mixtral-8x7b-instruct"
 )
