@@ -68,7 +68,7 @@ hpack==3.0.0
 hstspreload==2025.1.1
 httpcore==1.0.8
 httplib2==0.22.0
-httpx==0.28.1
+httpx==0.13.3
 httpx-sse==0.4.0
 huggingface-hub==0.30.1
 hyperframe==5.2.0
