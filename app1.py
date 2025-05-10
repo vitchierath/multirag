@@ -1,27 +1,41 @@
 import streamlit as st
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 import requests
 import re
 from dotenv import load_dotenv
 import os
+import openai
 
+# Load environment variables
 load_dotenv()
+openai.api_key = os.getenv("OPENROUTER_API_KEY")
+openai.base_url = "https://openrouter.ai/api/v1"
+
 # Initialize components
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-llm = ChatOpenAI(
-    api_key=os.getenv("OPENAPI_KEY"),
-    base_url="https://openrouter.ai/api/v1",
-    model="mistralai/mixtral-8x7b-instruct"
-)
+
 prompt_template = PromptTemplate(
     input_variables=["context", "question"],
-    template="Use the following context to answer the question concisely. If the context mentions founders, list their names explicitly. If no founder information is available, say so:\n{context}\n\nQuestion: {question}\nAnswer:"
+    template="Use the following context to answer the question concisely. "
+             "If the context mentions founders, list their names explicitly. "
+             "If no founder information is available, say so:\n\n"
+             "{context}\n\nQuestion: {question}\nAnswer:"
 )
 
-# Retrieval function
+# Call OpenRouter via openai client
+def query_openrouter(prompt):
+    try:
+        response = openai.ChatCompletion.create(
+            model="mistralai/mixtral-8x7b-instruct",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Error calling OpenRouter: {str(e)}"
+
+# Retrieve top k similar chunks from FAISS index
 def retrieve_chunks(query, k=3):
     vector_store = FAISS.load_local(
         "faiss_index",
@@ -31,19 +45,19 @@ def retrieve_chunks(query, k=3):
     docs = vector_store.similarity_search(query, k=k)
     return docs
 
-# Answer generation
+# Generate answer via RAG pipeline
 def generate_answer(query):
     retrieved_docs = retrieve_chunks(query, k=3)
     context = "\n".join([doc.page_content for doc in retrieved_docs])
     prompt = prompt_template.format(context=context, question=query)
-    answer = llm.invoke(prompt)
+    answer = query_openrouter(prompt)
     return {
-        "answer": answer.content,
+        "answer": answer,
         "context": context,
         "retrieved_chunks": retrieved_docs
     }
 
-# Calculator tool
+# Simple calculator tool
 def calculator(query):
     try:
         expression = re.search(r"calculate\s+(.+)", query, re.IGNORECASE).group(1)
@@ -52,7 +66,7 @@ def calculator(query):
     except:
         return "Error: Invalid calculation."
 
-# Dictionary tool
+# Simple dictionary definition tool
 def define_word(query):
     try:
         word = re.search(r"define\s+(\w+)", query, re.IGNORECASE).group(1)
@@ -65,7 +79,7 @@ def define_word(query):
     except:
         return "Error: Invalid word or API issue."
 
-# Agent workflow
+# Agent workflow dispatcher
 def agent_workflow(query):
     st.write(f"Processing query: {query}")
     if "calculate" in query.lower():
