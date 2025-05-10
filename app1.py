@@ -24,16 +24,42 @@ prompt_template = PromptTemplate(
              "{context}\n\nQuestion: {question}\nAnswer:"
 )
 
-# Call OpenRouter via openai client
+# # Call OpenRouter via openai client
+# def query_openrouter(prompt):
+#     try:
+#         response = openai.ChatCompletion.create(
+#             model="mistralai/mixtral-8x7b-instruct",
+#             messages=[{"role": "user", "content": prompt}]
+#         )
+#         return response.choices[0].message.content
+#     except Exception as e:
+#         return f"Error calling OpenRouter: {str(e)}
+
+# Function to query OpenRouter API directly
 def query_openrouter(prompt):
     try:
-        response = openai.ChatCompletion.create(
-            model="mistralai/mixtral-8x7b-instruct",
-            messages=[{"role": "user", "content": prompt}]
+        # OpenRouter API call
+        response = requests.post(
+            "https://openrouter.ai/api/v1/completions",
+            headers={
+                "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "mistralai/mixtral-8x7b-instruct",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 150  # Adjust based on the length of expected answers
+            }
         )
-        return response.choices[0].message.content
+        
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"]
+        else:
+            return f"Error: {response.status_code} - {response.text}"
+    
     except Exception as e:
         return f"Error calling OpenRouter: {str(e)}"
+
 
 # Retrieve top k similar chunks from FAISS index
 def retrieve_chunks(query, k=3):
