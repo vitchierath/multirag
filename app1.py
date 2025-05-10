@@ -1,34 +1,23 @@
 import streamlit as st
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
+from langchain_openai import ChatOpenAI
+from langchain.prompts import PromptTemplate
 import requests
 import re
 import os
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
-
-from langchain.prompts import PromptTemplate
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_openai import ChatOpenAI
-
 # Initialize components
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
 llm = ChatOpenAI(
-    api_key=os.getenv("OPENAPI_KEY"),  
+    api_key=os.getenv("OPENROUTER_API_KEY"),
     base_url="https://openrouter.ai/api/v1",
     model="mistralai/mixtral-8x7b-instruct"
 )
-
 prompt_template = PromptTemplate(
     input_variables=["context", "question"],
-    template=(
-        "Use the following context to answer the question concisely. "
-        "If the context mentions founders, list their names explicitly. "
-        "If no founder information is available, say so:\n\n"
-        "{context}\n\nQuestion: {question}\nAnswer:"
-    )
+    template="Use the following context to answer the question concisely. If the context mentions founders, list their names explicitly. If no founder information is available, say so:\n{context}\n\nQuestion: {question}\nAnswer:"
 )
 
 # Retrieval function
@@ -105,13 +94,13 @@ def agent_workflow(query):
         }
 
 # Streamlit UI
-st.title("🔍 RAG-Powered Q&A Assistant")
+st.title("RAG-Powered Q&A Assistant")
 query = st.text_input("Enter your question:")
 if query:
     result = agent_workflow(query)
-    st.markdown(f"**Tool used**: `{result['tool']}`")
-    st.markdown(f"**Answer**: {result['answer']}")
+    st.write(f"**Tool used**: {result['tool']}")
+    st.write(f"**Answer**: {result['answer']}")
     if result["context"]:
-        st.markdown("**Retrieved Context:**")
+        st.write("**Retrieved Context**:")
         for i, doc in enumerate(result["retrieved_chunks"], 1):
-            st.markdown(f"**Chunk {i}:** {doc.page_content}")
+            st.write(f"Chunk {i}: {doc.page_content}")
