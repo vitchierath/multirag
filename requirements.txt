@@ -4,13 +4,13 @@ requests==2.31.0
 python-dotenv==1.0.1
 
 # ───── LANGCHAIN ECOSYSTEM ─────
-langchain==0.2.0
+langchain==0.3.52  # Updated to a newer version compatible with langsmith
 langchain-openai==0.1.7
 langchain-community==0.3.21
 langchain-core==0.3.52
 langchain-huggingface==0.0.3
 langchain-text-splitters==0.3.8
-langsmith==0.3.31
+langsmith==0.3.31  # Compatible with the updated langchain version
 
 # ───── VECTOR STORE & EMBEDDINGS ─────
 sentence-transformers==2.7.0
@@ -83,3 +83,4 @@ pyarrow==15.0.2
 PyYAML==6.0.1
 regex==2024.4.16
 gdown==5.2.0
+
