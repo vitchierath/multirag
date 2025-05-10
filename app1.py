@@ -12,7 +12,7 @@ load_dotenv()
 # Initialize components
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 llm = ChatOpenAI(
-    api_key=os.getenv("OPENROUTER_API_KEY"),
+    api_key=os.getenv("OPENAPI_KEY"),
     base_url="https://openrouter.ai/api/v1",
     model="mistralai/mixtral-8x7b-instruct"
 )
