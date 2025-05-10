@@ -5,6 +5,7 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 import requests
 import re
+from dotenv import load_dotenv
 import os
 
 load_dotenv()
