@@ -1,0 +1,5 @@
+Product Details
+Q: What is SmartSuite?
+A: SmartSuite is an AI-powered business management tool that automates invoicing, customer support, and analytics.
+Q: What are its key features?
+A: Key features include real-time analytics, chatbot support, and seamless integration with existing CRM tools.
