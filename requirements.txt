@@ -62,7 +62,7 @@ greenlet==3.2.0
 grpcio==1.72.0rc1
 grpcio-status==1.72.0rc1
 gTTS==2.5.4
-h11==0.14.0
+h11==0.8
 h2==3.2.0
 hpack==3.0.0
 hstspreload==2025.1.1
