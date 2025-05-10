@@ -17,8 +17,8 @@ sentence-transformers==2.7.0
 faiss-cpu==1.7.4  # pinned to avoid conflict with older LangChain versions
 
 # Transformers & Torch
-transformers==4.51.3
-torch==2.2.2
+transformers
+torch
 torchvision==0.17.2
 torchaudio==2.2.2
 accelerate==1.6.0
@@ -68,7 +68,7 @@ aiohttp==3.11.16
 aiohappyeyeballs==2.6.1
 accelerate==1.6.0
 filelock==3.18.0
-protobuf==6.30.2
+protobuf
 typing_extensions==4.13.0
 pydantic==2.11.3
 pydantic-settings==2.8.1
