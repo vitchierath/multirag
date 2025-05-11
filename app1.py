@@ -1,50 +1,61 @@
 import streamlit as st
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.chat_models import ChatOpenAI
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 import requests
 import re
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
 
-# Fetch API Key from environment
+# Set OpenRouter API Key (Required Format: Bearer <key>)
 api_key = os.getenv("OPENROUTER_API_KEY")
-
-# Ensure the API key is loaded correctly
 if not api_key:
-    st.error("No API key found. Please check your .env file.")
-else:
-    st.write(f"API Key loaded: {api_key[:5]}...")  # Show first 5 chars for security
+    st.error("No OpenRouter API key found. Please check your .env file.")
+    st.stop()
+os.environ["OPENAI_API_KEY"] = f"Bearer {api_key}"
+
+# Display partial key to confirm load
+st.success(f"API Key loaded: {api_key[:10]}...")
 
 # Initialize components
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# Initialize LLM with OpenRouter endpoint
+# Load FAISS vector store
+def retrieve_chunks(query, k=3):
+    try:
+        vector_store = FAISS.load_local(
+            "faiss_index",
+            embeddings,
+            allow_dangerous_deserialization=True
+        )
+        docs = vector_store.similarity_search(query, k=k)
+        return docs
+    except Exception as e:
+        st.error(f"Failed to load FAISS index: {e}")
+        return []
+
+# Initialize OpenRouter chat model
 llm = ChatOpenAI(
-    openai_api_key=api_key,
-    openai_api_base="https://openrouter.ai/api/v1",
-    model_name="mistralai/mixtral-8x7b-instruct"
+    model="mistralai/mixtral-8x7b-instruct",
+    openai_api_base="https://openrouter.ai/api/v1"
 )
 
-# Define prompt template
+# Prompt template
 prompt_template = PromptTemplate(
     input_variables=["context", "question"],
-    template="Use the following context to answer the question concisely. If the context mentions founders, list their names explicitly. If no founder information is available, say so:\n{context}\n\nQuestion: {question}\nAnswer:"
-)
+    template="""Use the following context to answer the question concisely.
+If the context mentions founders, list their names explicitly.
+If no founder information is available, say so.
 
-# Retrieval function
-def retrieve_chunks(query, k=3):
-    vector_store = FAISS.load_local(
-        "faiss_index",
-        embeddings,
-        allow_dangerous_deserialization=True
-    )
-    docs = vector_store.similarity_search(query, k=k)
-    return docs
+{context}
+
+Question: {question}
+Answer:"""
+)
 
 # Answer generation function
 def generate_answer(query):
@@ -52,16 +63,17 @@ def generate_answer(query):
     context = "\n".join([doc.page_content for doc in retrieved_docs])
     prompt = prompt_template.format(context=context, question=query)
     try:
-        answer = llm.invoke(prompt)
+        response = llm.invoke(prompt)
         return {
-            "answer": answer.content,
+            "tool": "RAG",
+            "answer": response.content,
             "context": context,
             "retrieved_chunks": retrieved_docs
         }
     except Exception as e:
-        st.error(f"Error calling OpenRouter: {str(e)}")
         return {
-            "answer": f"Error: {str(e)}",
+            "tool": "RAG",
+            "answer": f"Error calling OpenRouter: {str(e)}",
             "context": context,
             "retrieved_chunks": retrieved_docs
         }
@@ -88,11 +100,9 @@ def define_word(query):
     except:
         return "Error: Invalid word or API issue."
 
-# Routing agent
+# Agent workflow
 def agent_workflow(query):
-    st.write(f"Processing query: {query}")
     if "calculate" in query.lower():
-        st.write("Routing to calculator tool")
         return {
             "tool": "calculator",
             "answer": calculator(query),
@@ -100,7 +110,6 @@ def agent_workflow(query):
             "retrieved_chunks": []
         }
     elif "define" in query.lower():
-        st.write("Routing to dictionary tool")
         return {
             "tool": "dictionary",
             "answer": define_word(query),
@@ -108,23 +117,17 @@ def agent_workflow(query):
             "retrieved_chunks": []
         }
     else:
-        st.write("Routing to RAG pipeline")
-        result = generate_answer(query)
-        return {
-            "tool": "RAG",
-            "answer": result["answer"],
-            "context": result["context"],
-            "retrieved_chunks": result["retrieved_chunks"]
-        }
+        return generate_answer(query)
 
 # Streamlit UI
-st.title("RAG-Powered Q&A Assistant")
+st.title("🔍 RAG-Powered Q&A Assistant")
+
 query = st.text_input("Enter your question:")
 if query:
     result = agent_workflow(query)
-    st.write(f"**Tool used**: {result['tool']}")
-    st.write(f"**Answer**: {result['answer']}")
+    st.markdown(f"**Tool used**: `{result['tool']}`")
+    st.markdown(f"**Answer**: {result['answer']}")
     if result["context"]:
-        st.write("**Retrieved Context**:")
+        st.markdown("**Retrieved Context:**")
         for i, doc in enumerate(result["retrieved_chunks"], 1):
-            st.write(f"Chunk {i}: {doc.page_content}")
+            st.markdown(f"**Chunk {i}:** {doc.page_content}")
