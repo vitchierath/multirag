@@ -1,64 +1,76 @@
 import streamlit as st
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
-import requests
-import re
 from dotenv import load_dotenv
 import os
+import requests
+import re
+import json
 
-# Load environment variables from .env
+# Load environment variables
 load_dotenv()
 
-# Fetch API Key from environment
+# Fetch OpenRouter API key
 api_key = os.getenv("OPENROUTER_API_KEY")
 
-# Ensure the API key is loaded correctly
+# Show only first few characters for security
 if not api_key:
     st.error("No API key found. Please check your .env file.")
 else:
-    st.write(f"API Key loaded: {api_key[:5]}...")  # Show first 5 chars for security
+    st.write(f"API Key loaded: {api_key[:5]}...")
 
-# Initialize components
+# Initialize embeddings
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
-# Initialize OpenRouter API client with the key
-llm = ChatOpenAI(
-    api_key=api_key,
-    base_url="https://openrouter.ai/api/v1",
-    model="mistralai/mixtral-8x7b-instruct"
-)
-
-# Define prompt template for answer generation
+# Prompt Template
 prompt_template = PromptTemplate(
     input_variables=["context", "question"],
-    template="Use the following context to answer the question concisely. If the context mentions founders, list their names explicitly. If no founder information is available, say so:\n{context}\n\nQuestion: {question}\nAnswer:"
+    template=(
+        "Use the following context to answer the question concisely. "
+        "If the context mentions founders, list their names explicitly. "
+        "If no founder information is available, say so:\n"
+        "{context}\n\nQuestion: {question}\nAnswer:"
+    )
 )
 
-# Retrieval function to fetch relevant chunks
+# Retrieval function
 def retrieve_chunks(query, k=3):
-    vector_store = FAISS.load_local(
-        "faiss_index",
-        embeddings,
-        allow_dangerous_deserialization=True
-    )
+    vector_store = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
     docs = vector_store.similarity_search(query, k=k)
     return docs
 
-# Answer generation function
+# RAG Answer Generation using OpenRouter
 def generate_answer(query):
     retrieved_docs = retrieve_chunks(query, k=3)
     context = "\n".join([doc.page_content for doc in retrieved_docs])
     prompt = prompt_template.format(context=context, question=query)
+
     try:
-        # Call the OpenRouter API to generate the answer
-        answer = llm.invoke(prompt)
+        response = requests.post(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://yourdomain.com",  # Replace with your domain or "localhost"
+                "X-Title": "RAG Assistant"
+            },
+            json={
+                "model": "mistralai/mixtral-8x7b-instruct",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+        )
+
+        if response.status_code != 200:
+            raise Exception(response.json())
+
+        data = response.json()
         return {
-            "answer": answer.content,
+            "answer": data["choices"][0]["message"]["content"],
             "context": context,
             "retrieved_chunks": retrieved_docs
         }
+
     except Exception as e:
         st.error(f"Error calling OpenRouter: {str(e)}")
         return {
@@ -67,7 +79,7 @@ def generate_answer(query):
             "retrieved_chunks": retrieved_docs
         }
 
-# Calculator tool to evaluate mathematical expressions
+# Calculator tool
 def calculator(query):
     try:
         expression = re.search(r"calculate\s+(.+)", query, re.IGNORECASE).group(1)
@@ -76,7 +88,7 @@ def calculator(query):
     except:
         return "Error: Invalid calculation."
 
-# Dictionary tool to define words
+# Dictionary tool
 def define_word(query):
     try:
         word = re.search(r"define\s+(\w+)", query, re.IGNORECASE).group(1)
@@ -89,7 +101,7 @@ def define_word(query):
     except:
         return "Error: Invalid word or API issue."
 
-# Agent workflow to route queries to the appropriate tool
+# Query Router
 def agent_workflow(query):
     st.write(f"Processing query: {query}")
     if "calculate" in query.lower():
@@ -118,9 +130,10 @@ def agent_workflow(query):
             "retrieved_chunks": result["retrieved_chunks"]
         }
 
-# Streamlit UI to take user input and display results
+# Streamlit UI
 st.title("RAG-Powered Q&A Assistant")
 query = st.text_input("Enter your question:")
+
 if query:
     result = agent_workflow(query)
     st.write(f"**Tool used**: {result['tool']}")
